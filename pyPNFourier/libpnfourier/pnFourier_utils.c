@@ -141,13 +141,10 @@ REAL8 laplace_nega(INT n, INT a, REAL8 beta)
         REAL8 num = (REAL8) ((absa-n-2*m+1)*(absa-n-2*m+2));
         REAL8 ratio = fac2 * num / (den1 * den2);
         T0 *= ratio;
-        // print_debug("[%d] T = %.16e\n", m, T0);
         S += T0;
         if (fabs(T0) < tol * fabs(S)) 
             break;
     }
-    // print_debug("pref = %.16e\n", pref);
-    // print_debug("S = %.16e\n", S);
 
     return (n%2 ? -pref*S : pref*S);
 }
@@ -166,7 +163,6 @@ REAL8 laplace_na(INT n, INT a, REAL8 beta)
         + n * log(beta)                             /* ln β^n           */
         + (1 - 2*a) * log(1.0 - beta2);             /* ln(1-β^2)^{1-2a} */
     REAL8 ln_T0 = -lgamma((REAL8)n + 1.0);          /* ln(1/n!) */
-    // REAL8 T     = exp(ln_T0);   
     REAL8 lnpref = ln_pref+ln_T0;
     REAL8 T0    = 1.0;                    
     REAL8 S     = T0;                               
@@ -201,7 +197,6 @@ REAL8 loglaplace_na(INT n, INT a, REAL8 beta)
         + n * log(beta)                             /* ln β^n           */
         + (1 - 2*a) * log(1.0 - beta2);             /* ln(1-β^2)^{1-2a} */
     REAL8 ln_T0 = -lgamma((REAL8)n + 1.0);          /* ln(1/n!) */
-    // REAL8 T     = exp(ln_T0);   
     REAL8 lnpref = ln_pref+ln_T0;
     REAL8 T0    = 1.0;                    
     REAL8 S     = T0;                               
@@ -376,36 +371,6 @@ static inline REAL8 dHarm(size_t n, size_t m) {
     return HarmonicNumber(n? n-1:0) - HarmonicNumber(m? m-1:0);
 }
 
-static inline REAL8 poch_modified_next(REAL8 P, REAL8 b, INT absn, INT m) {
-     return P * (b + m) / ( (absn + m + 1.0) * (m+1.0) ); 
-}
-
-static REAL8 DPoch1Mam(INT a, INT m, REAL8 Poch1mam) {
-    /* m<=a-1  or  Gamma branch */
-    if (m <= a-1) {
-        return Poch1mam * dHarm((size_t)a, (size_t)(a-m));
-    } else {
-        /* (-1)^a Γ(a) Γ(m+1-a) */
-        REAL8 lg = lgamma(a) + lgamma(m + 1 - a);
-        REAL8 val = exp(lg);
-        return (a&1 ? -val :  val);
-    }
-}
-
-static REAL8 DPoch1pnMam(INT a, INT n, INT m, REAL8 Poch1pn) {
-    if (a <= n) {
-        return Poch1pn * dHarm((size_t)(n+1-a), (size_t)(n+1+m-a));
-    } else {
-        if (m <= a - n - 1) {
-            return Poch1pn * dHarm((size_t)(a-n), (size_t)(a-n-m));
-        } else {
-            REAL8 lg = lgamma(a - n) + lgamma(m + n + 1 - a);
-            REAL8 val = exp(lg);
-            return (((a-n)&1) ? -val : val);
-        }
-    }
-}
-
 // can be cached
 // DPoch1MamPoch1pnMam[a, |n|, m] / (|n| + m)! / m!
 // = ((1-a)_m * d_a(1+n-a)_m + (1+n-a)_m * d_a(1-a)_m) / ((|n| + m)! * m!)
@@ -419,7 +384,6 @@ static REAL8 DH2F1SeriesP1(INT absn, INT a, REAL8 beta2)
     REAL8 poc1Ma = 1.0;
     REAL8 sum = 0.0;
     REAL8 tol = 1e-16;
-    // print_debug("absn = %d, a = %d, beta2 = %e\n", absn, a, beta2);
     for (int m=1 ; m<a ; m++) {
         poch1MapnOverDen *= (REAL8)(absn-a+m) / (REAL8)((absn + m) * m);
         poc1Ma *= m-a;
@@ -427,15 +391,12 @@ static REAL8 DH2F1SeriesP1(INT absn, INT a, REAL8 beta2)
 
         // preparation
         beta2Pow *= beta2;
-        // print_debug("[%d]: poc1Ma = %e, poch1MapnOverDen = %e, dHarm = %e\n", m, poc1Ma, poch1MapnOverDen, dHarm(a, a-m));
-        // print_debug("[%d]: res = %e\n", m, poc1Ma * poch1MapnOverDen * dHarm(a, a-m));
         if (m_cut != -1 && m >= m_cut) return sum;
     }
     REAL8 apref = ( (a & 1) ? -1.0 : 1.0) * exp(lgamma(a));
     REAL8 fac2 = 1.0;
     poch1MapnOverDen *= (REAL8)absn/( (REAL8)a*(absn+a));
     sum += poch1MapnOverDen * apref *beta2Pow;
-    // print_debug("[%d]: res = %e, apref = %e\n", a, poch1MapnOverDen * apref, apref);
     beta2Pow *= beta2;
     for (int m=1;; m++) {
         poch1MapnOverDen *= (REAL8)(absn+m)/ ((REAL8)(absn + m + a));
@@ -443,7 +404,6 @@ static REAL8 DH2F1SeriesP1(INT absn, INT a, REAL8 beta2)
         REAL8 term = poch1MapnOverDen*fac2*apref*beta2Pow;
         sum += term;
         beta2Pow *= beta2;
-        // print_debug("[%d]: res = %e\n", a+m, poch1MapnOverDen*fac2*apref);
         if (fabs(term) < tol*fabs(sum)) break;
     }
     return sum;
@@ -466,22 +426,18 @@ static REAL8 DH2F1SeriesP2(INT absn, INT a, REAL8 beta2)
     REAL8 poch1Mapn = 1.0;
     REAL8 sum = 0.0;
     REAL8 tol = 1e-16;
-    // print_debug("absn = %d, a = %d, beta2 = %e\n", absn, a, beta2);
     for (int m=1 ; m<a-absn ; m++) {
         poch1MaOver *= (REAL8)(m-a) / (REAL8)((absn + m) * m);
         poch1Mapn *= absn+m-a;
         sum += poch1Mapn * poch1MaOver * beta2Pow * dHarm(a-absn, a-absn-m);
         // preparation
         beta2Pow *= beta2;
-        // print_debug("[%d]: poc1Ma = %e, poch1MapnOverDen = %e, dHarm = %e\n", m, poc1Ma, poch1MapnOverDen, dHarm(a, a-m));
-        // print_debug("[%d]: res = %e\n", m, poc1Ma * poch1MapnOverDen * dHarm(a, a-m));
     }
     INT da = a - absn;
     REAL8 apref = ( ( da & 1) ? -1.0 : 1.0) * exp(lgamma(da));
     REAL8 fac2 = 1.0;
     poch1MaOver *= (REAL8)(-absn)/( (REAL8)a*da);
     sum += poch1MaOver * apref * beta2Pow;
-    // print_debug("[%d]: res = %e, apref = %e\n", a, poch1MapnOverDen * apref, apref);
     beta2Pow *= beta2;
     for (int m=1; m < absn ; m++) {
         poch1MaOver *= (REAL8)(m-absn)/ ((REAL8)(m + da));
@@ -494,8 +450,6 @@ static REAL8 DH2F1SeriesP2(INT absn, INT a, REAL8 beta2)
 
 static REAL8 H2F1Series(INT a, INT absn, REAL8 beta2)
 {
-    // REAL8 pref = exp(lgamma((REAL8)a));
-    // REAL8 T     = exp(ln_T0);   
     REAL8 T0    = 1.0;                    
     REAL8 S     = T0;                               
     REAL8 tol = 1e-16;
@@ -507,9 +461,6 @@ static REAL8 H2F1Series(INT a, INT absn, REAL8 beta2)
 
         T0 *= ratio;
         S += T0;
-        // print_debug("[%d]: ratio = %e\n", m, T0);
-        // if (fabs(T0) < tol * fabs(S)) 
-        //     break;
     }
     return S;
 }
@@ -529,9 +480,7 @@ REAL8 Dlaplace_na(INT n, INT a, REAL8 beta)
     REAL8 lnpref = n*log(beta) + (1.-2.*a)*log(1-beta2) - lgamma(n+1) + log_pochhammer(a, n);
     REAL8 term1 = H2F1Series(a, n, beta2) * (2*log(1-beta2) - dHarm(a+n, a));
     REAL8 term2 = DH2F1SeriesP1(n, a, beta2) + DH2F1SeriesP2(n, a, beta2);
-    // print_debug("pref = %e, term1 = %e, term2 = %e\n", exp(lnpref), term1, term2);
     return -exp(lnpref)*(term1-term2);
-    // return 0.0;
 }
 
 DLaplaceCache *CreateDLaplaceCache(size_t nMax, INT a, REAL8 beta)
@@ -713,14 +662,11 @@ REAL8 get_BesselJ_from_BesselJCache(INT m, BesselJCache *C)
 
         for (INT i = old; i <= new; ++i) {
             C->Jbl[i] = jn(i, C->z);
-            // print_debug("extension: jn(%d, %.5f) = %.16e\n", i, C->z, C->Jbl[i]);
         }
 
         C->kMax = new;
     }
     return ( (m<0 && idx&1) ? -1.0 : 1.0)*C->Jbl[idx];
-    // REAL8 pref = idx & 1 ? (m<0 ? -1.0 : 1.0) : 1.0;
-    // return pref*ret;
 }
 
 
@@ -783,7 +729,6 @@ void DestroyBesselJCache2D(BesselJCache2D *cache)
 
 REAL8 get_BesselJ_from_BesselJCache2D(INT k, INT q, BesselJCache2D *C)
 {
-    // size_t absk = (k < 0 ? -k : k);
     size_t absk = (k<0 ? -k : k);
     size_t absq = (q<0 ? -q : q);
     if (absk > C->abskMax || absq > C->absqMax) {

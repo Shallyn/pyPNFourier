@@ -464,7 +464,6 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
     if (!ret) X_ERROR(X_EINVAL);
     *ret = (PNEllipticCacheV2){0};
     PNEllipticEvaluator *PNJKICache = CreatePNEllipticEvaluator(e, atol, rtol);
-    // 
     int absp = p<0 ? -p : p;
     ret->p = p;
     ret->e = e;
@@ -475,16 +474,13 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
 
     if (p!=0) {
         // dJpa0
-        // ret->dJp10 = dJpa0_Approx(p, 1, e);
         ret->dJp10 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,0,PNJKICache) - evaluate_Jpqab(p+1,p,1,0,PNJKICache) ) + evaluate_Jpqab(p-1,p,2,0,PNJKICache)+evaluate_Jpqab(p+1,p,2,0,PNJKICache) );
         // dJpa1
-        // ret->dJp11 = dJpa1_Approx(p, 1, e);
         ret->dJp11 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,1,PNJKICache) - evaluate_Jpqab(p+1,p,1,1,PNJKICache) ) + 
             evaluate_Jpqab(p-1,p,2,1,PNJKICache)+evaluate_Jpqab(p+1,p,2,1,PNJKICache) + 
             ( evaluate_Jpqab(p+1,p,2,0,PNJKICache) - evaluate_Jpqab(p-1,p,2,0,PNJKICache) )/de );
         
         // dJpa2
-        // ret->dJp12 = dJpa2_Approx(p, 1, e);
         ret->dJp12 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,2,PNJKICache) - evaluate_Jpqab(p+1,p,1,2,PNJKICache) ) + 
             evaluate_Jpqab(p-1,p,2,2,PNJKICache)+evaluate_Jpqab(p+1,p,2,2,PNJKICache) + 
             2.*( evaluate_Jpqab(p+1,p,2,1,PNJKICache) - evaluate_Jpqab(p-1,p,2,1,PNJKICache) )/de );
@@ -524,12 +520,8 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
         // Jpa2 positive a
         for (int a = 0; a<7; a++) {
             ret->Jpa2Vec_aPos[a] = evaluate_Jpqab(p, p, a, 2, PNJKICache);
-            // ret->Jpa2Vec_aPos[a] = Jpa2_Approx(p, a, e);
         }
         // Jpa2 negative a
-        // for (int a = -3; a<0; a++) {
-        //     ret->Jpa2Vec_aNeg[a+3] = Jpa2_Approx(p, a, e);
-        // }
         J0 = evaluate_Jpqab(p, p, 0, 2, PNJKICache);
         Jm1 = evaluate_Jpqab(p-1, p, 0, 2, PNJKICache);
         Jp1 = evaluate_Jpqab(p+1, p, 0, 2, PNJKICache);
@@ -560,9 +552,7 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
         J1 = evaluate_Jpqab(1, 0, 0, 1, PNJKICache);
         J2 = evaluate_Jpqab(2, 0, 0, 1, PNJKICache);
         J3 = evaluate_Jpqab(2, 0, 0, 1, PNJKICache);
-        // a = -1
         ret->dJSIntVec_b1[1] = J1 - 0.5*e*J2;
-        // a = -2
         ret->dJSIntVec_b1[0] = 0.25*( (e2+4.)*J1 + e*(-4.*J2 + e*J3) );
 
         for (int a = 0; a<7; a++)
@@ -570,9 +560,7 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
         J0 = evaluate_Jpqab(0, 0, 0, 2, PNJKICache);
         J1 = evaluate_Jpqab(1, 0, 0, 2, PNJKICache);
         J2 = evaluate_Jpqab(2, 0, 0, 2, PNJKICache);
-        // a = -1
         ret->dJCIntVec_b2[1] = J0 - e*J1;
-        // a = -2
         ret->dJCIntVec_b2[0] = 0.5*( (2.+e2)*J0 + e*(-4.*J1 + e*J2) );
 
         for (int a = 0; a<3; a++)
@@ -592,115 +580,13 @@ INT evaluate_JKIntegrals_Numeric(int p, REAL8 e, PNEllipticCacheV2 *ret,
 /*                                                                  */
 /*                                                                  */
 /* ---------------------------------------------------------------- */
-#define IS_DEBUG 0
 INT evaluate_JKIntegrals_Approx(int p, REAL8 e, PNEllipticCacheV2 *ret)
 {
-    PNEllipticEvaluator *PNJKICache = CreatePNEllipticEvaluator(e, 1e-16, 1e-16);
     if (!ret || p==0 || p>200) X_ERROR_REAL8(X_EINVAL);
-    // 
-    int absp = p<0 ? -p : p;
     ret->p = p;
     ret->e = e;
-    REAL8 de = sqrt(1. - e*e);
-    // Bessel Functions
     ret->BesselJ = jn(p, e*p);
     ret->dBesselJ = 0.5*( jn(p-1, e*p) - jn(p+1, e*p) );
-#if IS_DEBUG
-    // dJpa0
-    // ret->dJp10 = dJpa0_Approx(p, 1, e);
-    ret->dJp10 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,0,PNJKICache) - evaluate_Jpqab(p+1,p,1,0,PNJKICache) ) + evaluate_Jpqab(p-1,p,2,0,PNJKICache)+evaluate_Jpqab(p+1,p,2,0,PNJKICache) );
-    // dJpa1
-    // ret->dJp11 = dJpa1_Approx(p, 1, e);
-    ret->dJp11 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,1,PNJKICache) - evaluate_Jpqab(p+1,p,1,1,PNJKICache) ) + 
-        evaluate_Jpqab(p-1,p,2,1,PNJKICache)+evaluate_Jpqab(p+1,p,2,1,PNJKICache) + 
-        ( evaluate_Jpqab(p+1,p,2,0,PNJKICache) - evaluate_Jpqab(p-1,p,2,0,PNJKICache) )/de );
-
-    // dJpa2
-    // ret->dJp12 = dJpa2_Approx(p, 1, e);
-    ret->dJp12 = 0.5*( p*( evaluate_Jpqab(p-1,p,1,2,PNJKICache) - evaluate_Jpqab(p+1,p,1,2,PNJKICache) ) + 
-        evaluate_Jpqab(p-1,p,2,2,PNJKICache)+evaluate_Jpqab(p+1,p,2,2,PNJKICache) + 
-        2.*( evaluate_Jpqab(p+1,p,2,1,PNJKICache) - evaluate_Jpqab(p-1,p,2,1,PNJKICache) )/de );
-
-    // Jpa0 positive a
-    for (int a = 1; a<15; a++) {
-        // ret->Jpa0Vec_aPos[a-1] = evaluate_Jpqab(p, p, a, 0, PNJKICache);
-        ret->Jpa0Vec_aPos[a-1] = Jpa0_Approx(p, a, e);
-    }
-    // Kpa0
-    for (int a = 1; a<7; a++) {
-        // ret->Kpa0Vec[a-1] = evaluate_Kpqa0(p, p, a, PNJKICache);
-        ret->Kpa0Vec[a-1] = Kpa0_Approx(p, a, e);
-    }
-
-
-    // Jpa1 positive a
-    for (int a = 0; a<11; a++) {
-        // ret->Jpa1Vec_aPos[a] = evaluate_Jpqab(p, p, a, 1, PNJKICache);
-        ret->Jpa1Vec_aPos[a] = Jpa1_Approx(p, a, e);
-    }
-
-    // Jpa1 negative a
-    for (int a = -4; a<0; a++) {
-        ret->Jpa1Vec_aNeg[a+4] = Jpa1_Approx(p, a, e);
-    }
-    REAL8 J0, Jm1, Jp1, Jm2, Jp2, Jm3, Jp3, Jm4, Jp4;
-    REAL8 e2 = e*e;
-    REAL8 e3 = e2*e;
-    REAL8 e4 = e3*e;
-    // J0 = evaluate_Jpqab(p, p, 0, 1, PNJKICache);
-    // Jm1 = evaluate_Jpqab(p-1, p, 0, 1, PNJKICache);
-    // Jp1 = evaluate_Jpqab(p+1, p, 0, 1, PNJKICache);
-    // Jm2 = evaluate_Jpqab(p-2, p, 0, 1, PNJKICache);
-    // Jp2 = evaluate_Jpqab(p+2, p, 0, 1, PNJKICache);
-    // Jm3 = evaluate_Jpqab(p-3, p, 0, 1, PNJKICache);
-    // Jp3 = evaluate_Jpqab(p+3, p, 0, 1, PNJKICache);
-    // Jm4 = evaluate_Jpqab(p-4, p, 0, 1, PNJKICache);
-    // Jp4 = evaluate_Jpqab(p+4, p, 0, 1, PNJKICache);
-    // ret->Jpa1Vec_aNeg[0] = (J0 + 3*e2*J0 + (3*e4*J0)/8. - 2*e*Jm1 - (3*e3*Jm1)/2. + (3*e2*Jm2)/2. + (e4*Jm2)/4. - (e3*Jm3)/2. + (e4*Jm4)/16. - 2*e*Jp1 - (3*e3*Jp1)/2. + (3*e2*Jp2)/2. + (e4*Jp2)/4. - (e3*Jp3)/2. + (e4*Jp4)/16.);
-    // ret->Jpa1Vec_aNeg[1] = (J0 + (3*e2*J0)/2 - (3*e*Jm1)/2 - (3*e3*Jm1)/8 + (3*e2*Jm2)/4 - (e3*Jm3)/8 - (3*e*Jp1)/2 - (3*e3*Jp1)/8 + (3*e2*Jp2)/4 - (e3*Jp3)/8);
-    // ret->Jpa1Vec_aNeg[2] = (J0 + (e2*J0)/2. - e*Jm1 + (e2*Jm2)/4. - e*Jp1 + (e2*Jp2)/4.);
-    // ret->Jpa1Vec_aNeg[3] = J0 - (e*Jm1)/2. - (e*Jp1)/2.;
-
-
-    // Jpa2 positive a
-    for (int a = 0; a<7; a++) {
-        // ret->Jpa2Vec_aPos[a] = evaluate_Jpqab(p, p, a, 2, PNJKICache);
-        ret->Jpa2Vec_aPos[a] = Jpa2_Approx(p, a, e);
-    }
-    // Jpa2 negative a
-    for (int a = -3; a<0; a++) {
-        ret->Jpa2Vec_aNeg[a+3] = Jpa2_Approx(p, a, e);
-    }
-    // J0 = evaluate_Jpqab(p, p, 0, 2, PNJKICache);
-    // Jm1 = evaluate_Jpqab(p-1, p, 0, 2, PNJKICache);
-    // Jp1 = evaluate_Jpqab(p+1, p, 0, 2, PNJKICache);
-    // Jm2 = evaluate_Jpqab(p-2, p, 0, 2, PNJKICache);
-    // Jp2 = evaluate_Jpqab(p+2, p, 0, 2, PNJKICache);
-    // Jm3 = evaluate_Jpqab(p-3, p, 0, 2, PNJKICache);
-    // Jp3 = evaluate_Jpqab(p+3, p, 0, 2, PNJKICache);
-    // ret->Jpa2Vec_aNeg[0] = (J0 + (3*e2*J0)/2 - (3*e*Jm1)/2 - (3*e3*Jm1)/8 + (3*e2*Jm2)/4 - (e3*Jm3)/8 - (3*e*Jp1)/2 - (3*e3*Jp1)/8 + (3*e2*Jp2)/4 - (e3*Jp3)/8);
-    // ret->Jpa2Vec_aNeg[1] = (J0 + (e2*J0)/2. - e*Jm1 + (e2*Jm2)/4. - e*Jp1 + (e2*Jp2)/4.);
-    // ret->Jpa2Vec_aNeg[2] = J0 - (e*Jm1)/2. - (e*Jp1)/2.;
-
-    // Jpa3 positive a
-    for (int a = 0; a<3; a++) {
-        ret->Jpa3Vec_aPos[a] = evaluate_Jpqab(p, p, a, 3, PNJKICache);
-        // ret->Jpa3Vec_aPos[a] = Jpa3_Approx(p, a, e);
-    }
-    // Jpa3 negative a
-    // for (int a = -2; a<0; a++) {
-    //     ret->Jpa3Vec_aNeg[a+2] = Jpa3_Approx(p, a, e);
-    // }
-    J0 = evaluate_Jpqab(p, p, 0, 3, PNJKICache);
-    Jm1 = evaluate_Jpqab(p-1, p, 0, 3, PNJKICache);
-    Jp1 = evaluate_Jpqab(p+1, p, 0, 3, PNJKICache);
-    Jm2 = evaluate_Jpqab(p-2, p, 0, 3, PNJKICache);
-    Jp2 = evaluate_Jpqab(p+2, p, 0, 3, PNJKICache);
-    ret->Jpa3Vec_aNeg[0] = (J0 + (e2*J0)/2. - e*Jm1 + (e2*Jm2)/4. - e*Jp1 + (e2*Jp2)/4.);
-    ret->Jpa3Vec_aNeg[1] = J0 - (e*Jm1)/2. - (e*Jp1)/2.;
-
-    STRUCTFREE(PNJKICache, PNEllipticEvaluator);
-#else
     ret->dJp10 = dJpa0_Approx(p, 1, e);
     ret->dJp11 = dJpa1_Approx(p, 1, e);
     ret->dJp12 = dJpa2_Approx(p, 1, e);
@@ -727,61 +613,6 @@ INT evaluate_JKIntegrals_Approx(int p, REAL8 e, PNEllipticCacheV2 *ret)
     }
     for (int a = -2; a<0; a++) {
         ret->Jpa3Vec_aNeg[a+2] = Jpa3_Approx(p, a, e);
-    }
-#endif
-    return X_SUCCESS;
-}
-
-
-INT debug_test_PNEllipticApproxCache(int p, REAL8 e)
-{
-    PNEllipticCacheV2 cache;
-    evaluate_JKIntegrals_Numeric(p, e, &cache, 1e-16, 1e-16);
-    if (p!=0) {
-        print_debug("p = %d, e = %16e:\n", p, e);
-        print_err("\tJ[p] = %.16e\n", cache.BesselJ);
-        print_err("\tdJ[p] = %.16e\n", cache.dBesselJ);
-        print_debug("dJp10 = %.16e\n", cache.dJp10);
-        print_debug("dJp11 = %.16e\n", cache.dJp11);
-        print_debug("dJp12 = %.16e\n", cache.dJp12);
-        print_debug("Jpa0:\n");
-        for (int a = 1; a<15; a++) {
-            print_err("\tJ[p,%d,0] = %.16e\n", a, cache.Jpa0Vec_aPos[a-1]);
-        }
-        print_debug("Jpa1:\n");
-        for (int a = -4; a<0; a++) {
-            print_err("\tJ[p,%d,1] = %.16e\n", a, cache.Jpa1Vec_aNeg[a+4]);
-        }
-        for (int a = 0; a<11; a++) {
-            print_err("\tJ[p,%d,1] = %.16e\n", a, cache.Jpa1Vec_aPos[a]);
-        }
-        print_debug("Jpa2:\n");
-        for (int a = -3; a<0; a++) {
-            print_err("\tJ[p,%d,2] = %.16e\n", a, cache.Jpa2Vec_aNeg[a+3]);
-        }
-        for (int a = 0; a<7; a++) {
-            print_err("\tJ[p,%d,2] = %.16e\n", a, cache.Jpa2Vec_aPos[a]);
-        }
-        print_debug("Jpa3:\n");
-        for (int a = -2; a<0; a++) {
-            print_err("\tJ[p,%d,3] = %.16e\n", a, cache.Jpa3Vec_aNeg[a+2]);
-        }
-        for (int a = 0; a<3; a++) {
-            print_err("\tJ[p,%d,3] = %.16e\n", a, cache.Jpa3Vec_aPos[a]);
-        }
-        print_debug("Kpa0:\n");
-        for (int a = 1; a<7; a++) {
-            print_err("\tK[p,%d,0] = %.16e\n", a, cache.Kpa0Vec[a-1]);
-        }
-    } else {
-        print_debug("p = %d, e = %16e:\n", p, e);
-        for (int a = -2; a<11; a++)
-            print_err("\tdJSb1[a=%d] = %.16e\n", a, cache.dJSIntVec_b1[a+2]);
-        for (int a = -2; a<7; a++)
-            print_err("\tdJCb2[a=%d] = %.16e\n", a, cache.dJCIntVec_b2[a+2]);
-        for (int a = 0; a<3; a++)
-            print_err("\tdJSb3[a=%d] = %.16e\n", a, cache.dJSIntVec_b3[a]);
-
     }
     return X_SUCCESS;
 }

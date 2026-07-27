@@ -29,15 +29,6 @@
   #define SETCOMP(z,vr,vi) (z=(vr)+I*(vi))
 #endif
 
-/* ------------- Utils ------------- */
-static inline REAL8 safe_pow(INT m, REAL8 x)
-{
-    REAL8 delta = 1.0 - x;                     
-    if (delta > 1e-8)       
-        return pow(x, m);
-    return exp(m * log1p(-delta)); 
-}
-
 /* ---------------------------------------------------------------- */
 /*                                                                  */
 /*                                                                  */
@@ -137,9 +128,6 @@ REAL8 J_pq10_series(INT p, INT q, REAL8 e, REAL8 atol)
         p = -p;
         q = -q;
     }
-    // if (p == 0) return j0_fallback(x);
-    // if (q == 0) return laplace...
-    // REAL8 beta = (1.0 - sqrt(1.0 - e*e)) / e;
     REAL8 beta = eval_beta(e);
 
     REAL8 deltabeta = 1.0 - beta;
@@ -292,23 +280,6 @@ INT Jpqa_fft(INT p_min, INT p_max, INT q, INT a, REAL8 e,
     return X_SUCCESS;
 }
 
-/*  Safe Bessel array via Miller downward (stable when z ≪ k)  */
-static void bessel_fill(INT kmin, INT kmax, REAL8 z, REAL8 *J)
-{
-    /* Direct libm evaluation – O(N) but <300 calls in practice.  */
-    for (INT k = kmin; k <= kmax; ++k) {
-        REAL8 v;
-        if (k >= 0) {
-            v = jn(k, z);
-        } else {
-            INT kk = -k;
-            v = jn(kk, z);
-            if (kk & 1) v = -v;      /* J_{-n}(z)=(-1)^n J_n(z) */
-        }
-        J[k - kmin] = v;
-    }
-}
-
 /* ------------ Series Method ------------*/
 REAL8 J_pqa0_series(INT p, INT q, INT a, REAL8 e, REAL8 atol, REAL8 rtol)
 {
@@ -321,7 +292,6 @@ REAL8 J_pqa0_series(INT p, INT q, INT a, REAL8 e, REAL8 atol, REAL8 rtol)
         X_ERROR_REAL8(X_EINVAL);
     }
 
-    // if (a==0) return jn(p,q*e);  
     if(a==0) return jn(p,q*e);
     REAL8 beta = eval_beta(e);
     REAL8 beta2 = beta * beta;
@@ -334,10 +304,7 @@ REAL8 J_pqa0_series(INT p, INT q, INT a, REAL8 e, REAL8 atol, REAL8 rtol)
     INT kmin = -N, kmax = N;
     INT M = kmax - kmin + 1;
     INT kMin = p_abs < 5 ? 5 : p_abs;
-    // INT kMin = 10;
     /* Bessel array J_k(z) (both signs)                                */
-    // REAL8 *Jk = MYMalloc(M * sizeof(REAL8));
-    // bessel_fill(kmin, kmax, z, Jk);
     BesselJCache *jc = CreateBesselJCache(kmax, z);
     size_t nMax = abs(kmax) + abs(p); // just guess
     LaplaceCache *lc = CreateLaplaceCache(nMax, a, beta);
@@ -349,35 +316,24 @@ REAL8 J_pqa0_series(INT p, INT q, INT a, REAL8 e, REAL8 atol, REAL8 rtol)
     REAL8 sumP = 0.0;
     for (INT k = 1 ;  ; ++k) {
         REAL8 bessP = get_BesselJ_from_BesselJCache(k, jc);
-        // REAL8 bessM = get_BesselJ_from_BesselJCache(-k, jc);
         INT nP = abs(k + p);
-        // INT nM = abs(-k+p);             /* |k+p| */
         REAL8 LP = get_Laplace_from_LaplaceCache(nP, lc);
-        // REAL8 LM = get_Laplace_from_LaplaceCache(nM, lc);
 
         REAL8 term = (k&1 ? -1.0 : 1.0) * (bessP * LP);
         sumP += term;
-        // print_debug("[%d]term/sumP = %.16e/%.16e\n", 
-        //         k, term, sumP);
         if (fabs(term) <= rtol * fabs(sumP)) {   /* early exit */
             ikcum ++;
             if (k > kMin && ikcum > ikcumMax) break;            /* tail symmetric */
-            // else ikcum = 0;
         } else 
             ikcum = 0;
     }
     REAL8 sumM = 0.0;
     for (INT k = 1 ;  ; ++k) {
-        // REAL8 bessP = get_BesselJ_from_BesselJCache(k, jc);
         REAL8 bessM = get_BesselJ_from_BesselJCache(-k, jc);
-        // INT nP = abs(k + p);
         INT nM = abs(-k+p);             /* |k+p| */
-        // REAL8 LP = get_Laplace_from_LaplaceCache(nP, lc);
         REAL8 LM = get_Laplace_from_LaplaceCache(nM, lc);
 
         REAL8 term = (k&1 ? -1.0 : 1.0) * (bessM*LM);
-        // print_debug("[%d]term/sumM = %.16e/%.16e\n", 
-        //         k, term, sumM);
         sumM += term;
         if (fabs(term) <= rtol * fabs(sumM) ) {   /* early exit */
             ikcum++;
@@ -386,10 +342,8 @@ REAL8 J_pqa0_series(INT p, INT q, INT a, REAL8 e, REAL8 atol, REAL8 rtol)
             ikcum = 0;
     }
 
-    // MYFree(Jk);
     STRUCTFREE(jc, BesselJCache);
     STRUCTFREE(lc, LaplaceCache);
-    // DestroyLaplaceCache(lc);
     REAL8 factor = pow(1.0 + beta2, a);
     return factor * (sum + sumP + sumM);   /* already includes 1/(2π) via Laplace */
 }
@@ -600,7 +554,6 @@ REAL8 J_pqa0_series_cache(INT p, INT q, INT a, REAL8 e,
         X_ERROR_REAL8(X_EINVAL);
     }
 
-    // if (a==0) return jn(p,q*e);  
     if(a==0) return get_BesselJ_from_BesselJCache2D(p, q, jc);
     REAL8 beta = eval_beta(e);
     REAL8 beta2 = beta * beta;
@@ -613,13 +566,8 @@ REAL8 J_pqa0_series_cache(INT p, INT q, INT a, REAL8 e,
     INT kmin = -N, kmax = N;
     INT M = kmax - kmin + 1;
     INT kMin = p_abs < 5 ? 5 : p_abs;
-    // INT kMin = 10;
     /* Bessel array J_k(z) (both signs)                                */
-    // REAL8 *Jk = MYMalloc(M * sizeof(REAL8));
-    // bessel_fill(kmin, kmax, z, Jk);
-    // BesselJCache *jc = CreateBesselJCache(kmax, z);
     size_t nMax = abs(kmax) + abs(p); // just guess
-    // LaplaceCache *lc = CreateLaplaceCache(nMax, a, beta);
 
     /* series summation                                                */
     INT ikcum = 0;
@@ -628,35 +576,24 @@ REAL8 J_pqa0_series_cache(INT p, INT q, INT a, REAL8 e,
     REAL8 sumP = 0.0;
     for (INT k = 1 ;  ; ++k) {
         REAL8 bessP = get_BesselJ_from_BesselJCache2D(k, q, jc);
-        // REAL8 bessM = get_BesselJ_from_BesselJCache(-k, jc);
         INT nP = abs(k + p);
-        // INT nM = abs(-k+p);             /* |k+p| */
         REAL8 LP = get_Laplace_from_LaplaceCache2D(nP, a, lc);
-        // REAL8 LM = get_Laplace_from_LaplaceCache(nM, lc);
 
         REAL8 term = (k&1 ? -1.0 : 1.0) * (bessP * LP);
         sumP += term;
-        // print_debug("[%d]term/sumP = %.16e/%.16e\n", 
-        //         k, term, sumP);
         if (fabs(term) <= rtol * fabs(sumP)) {   /* early exit */
             ikcum ++;
             if (k > kMin && ikcum > ikcumMax) break;            /* tail symmetric */
-            // else ikcum = 0;
         } else 
             ikcum = 0;
     }
     REAL8 sumM = 0.0;
     for (INT k = 1 ;  ; ++k) {
-        // REAL8 bessP = get_BesselJ_from_BesselJCache(k, jc);
         REAL8 bessM = get_BesselJ_from_BesselJCache2D(-k, q, jc);
-        // INT nP = abs(k + p);
         INT nM = abs(-k+p);             /* |k+p| */
-        // REAL8 LP = get_Laplace_from_LaplaceCache(nP, lc);
         REAL8 LM = get_Laplace_from_LaplaceCache2D(nM, a, lc);
 
         REAL8 term = (k&1 ? -1.0 : 1.0) * (bessM*LM);
-        // print_debug("[%d]term/sumM = %.16e/%.16e\n", 
-        //         k, term, sumM);
         sumM += term;
         if (fabs(term) <= rtol * fabs(sumM)) {   /* early exit */
             ikcum ++;
@@ -665,10 +602,6 @@ REAL8 J_pqa0_series_cache(INT p, INT q, INT a, REAL8 e,
             ikcum = 0;
     }
 
-    // MYFree(Jk);
-    // STRUCTFREE(jc, BesselJCache);
-    // STRUCTFREE(lc, LaplaceCache);
-    // DestroyLaplaceCache(lc);
     REAL8 factor = pow(1.0 + beta2, a);
     return factor * (sum + sumP + sumM);   /* already includes 1/(2π) via Laplace */
 }
@@ -988,7 +921,6 @@ REAL8 Jpa0_Approx(INT p, INT a, REAL8 e)
         );
     term2 = e14*deltae*deltae2*term2;
     return exp(lnPref + term0 + term1 + term2 );
-    // return COEFFSJPA0f[a-1][absp-1][1];
 }
 
 REAL8 dJpa0_Approx(INT p, INT a, REAL8 e)
@@ -1050,84 +982,3 @@ REAL8 dJpa0_Approx(INT p, INT a, REAL8 e)
             );
     return exp(lnPref+lneprL)*(1. + e14*( deltae*epr_cheby + COEFFSdJb0_a1_jhc[absp-1][7] ));
 }
-
-#if 0
-REAL8 J_pqa0_series_cache(INT p, INT q, INT a, REAL8 e, 
-    BesselJCache2D *jc, LaplaceCache2D *lc,
-    REAL8 atol, REAL8 rtol)
-{
-    if (e <= 0.0 || e >= EMAX) {                      
-        XPrintError("Error - %s: e = %f must be in (0,%e)\n", __func__, e , EMAX);
-        X_ERROR_REAL8(X_EINVAL);
-    }
-    if (a < 0) {
-        XPrintError("Error - %s: power a = %d must be ≥ 0\n", __func__, a );
-        X_ERROR_REAL8(X_EINVAL);
-    }
-
-    // if (a==0) return jn(p,q*e);  
-    if(a==0) return jn(p,q*e);
-    REAL8 beta = eval_beta(e);
-    REAL8 beta2 = beta * beta;
-    REAL8 z    = q * e;
-
-    /* choose truncation N so that tail < tol                          */
-    INT p_abs = abs(p);
-    INT N = choose_N_a(p_abs, q, e, beta, atol, a);
-
-    INT kmin = -N, kmax = N;
-    INT M = kmax - kmin + 1;
-
-    /* Bessel array J_k(z) (both signs)                                */
-    // REAL8 *Jk = MYMalloc(M * sizeof(REAL8));
-    // bessel_fill(kmin, kmax, z, Jk);
-    size_t nMax = abs(kmax) + abs(p); // just guess
-    // LaplaceCache *lc = CreateLaplaceCache(nMax, a, beta);
-
-    /* series summation                                                */
-    REAL8 sum = 0.0;
-    for (INT k = kmin; k <= kmax; ++k) {
-        // INT idx = k - kmin;
-        // REAL8 bess = Jk[idx];
-        REAL8 bess = get_BesselJ_from_BesselJCache2D(k, q, jc);
-        if (k & 1) bess = -bess;          /* (-1)^k factor */
-        INT n = abs(k + p);             /* |k+p| */
-        // REAL8 Lnp = laplace_na(n, a, beta);
-        // REAL8 Lnp = get_Laplace_from_LaplaceCache(n, lc);
-        REAL8 Lnp = get_Laplace_from_LaplaceCache2D(n, a, lc);
-
-        REAL8 term = bess * Lnp;
-        // print_debug("Laplace(%d, %d, %e) = %e\n", n, a, beta, Lnp);
-        sum += term;
-        if (fabs(term) <= rtol * fabs(sum)) {   /* early exit */
-            if (k > p_abs) break;            /* tail symmetric */
-        }
-    }
-    // MYFree(Jk);
-    // DestroyLaplaceCache(lc);
-    REAL8 factor = pow(1.0 + beta2, a);
-    return factor * sum;   /* already includes 1/(2π) via Laplace */
-}
-#endif
-
-/* ---------- test ------------------------------------------ */
-// INT testit()
-// {
-//     INT    p_min = 0;
-//     INT    p_max = 5;
-//     INT    q     = 1;
-//     INT    a     = 20; 
-//     REAL8  e     = 0.99;
-
-//     int P = p_max - p_min + 1;
-//     double *vals = MYMalloc(sizeof(double)*P);
-
-//     Jpqa_rangep(p_min, p_max, q, a, e, 1e-16, vals);
-
-//     for (int i=0;i<P;++i)
-//         printf("Jnew[%d,%d,%d,%.6g]/(2π) = %.15e\n",
-//                p_min+i, q, a, e, vals[i]);
-
-//     MYFree(vals);
-//     return 0;
-// }

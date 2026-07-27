@@ -61,13 +61,6 @@ typedef struct {
     PNEllipticCache *cacheK0;
 }PNEllipticEvaluator;
 
-// typedef struct {
-//     BOOLEAN is_zeroe;
-//     REAL8 e;
-//     REAL8 de;
-
-// }
-
 PNEllipticCache *CreatePNEllipticCache(size_t abspMax, size_t absqMax, size_t aMax, REAL8 e, REAL8 val0);
 void DestroyPNEllipticCache(PNEllipticCache *cache);
 
